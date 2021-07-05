@@ -16,4 +16,7 @@ message StudentRequest {
 
 service StudentService {
     rpc GetStudent (StudentRequest) returns (Student);
+
+    // stream service
+    rpc StreamGetStudent (stream StudentRequest) returns (stream Student);
 }

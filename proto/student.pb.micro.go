@@ -43,6 +43,8 @@ func NewStudentServiceEndpoints() []*api.Endpoint {
 
 type StudentService interface {
 	GetStudent(ctx context.Context, in *StudentRequest, opts ...client.CallOption) (*Student, error)
+	// stream service
+	StreamGetStudent(ctx context.Context, opts ...client.CallOption) (StudentService_StreamGetStudentService, error)
 }
 
 type studentService struct {
@@ -67,15 +69,69 @@ func (c *studentService) GetStudent(ctx context.Context, in *StudentRequest, opt
 	return out, nil
 }
 
+func (c *studentService) StreamGetStudent(ctx context.Context, opts ...client.CallOption) (StudentService_StreamGetStudentService, error) {
+	req := c.c.NewRequest(c.name, "StudentService.StreamGetStudent", &StudentRequest{})
+	stream, err := c.c.Stream(ctx, req, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &studentServiceStreamGetStudent{stream}, nil
+}
+
+type StudentService_StreamGetStudentService interface {
+	Context() context.Context
+	SendMsg(interface{}) error
+	RecvMsg(interface{}) error
+	Close() error
+	Send(*StudentRequest) error
+	Recv() (*Student, error)
+}
+
+type studentServiceStreamGetStudent struct {
+	stream client.Stream
+}
+
+func (x *studentServiceStreamGetStudent) Close() error {
+	return x.stream.Close()
+}
+
+func (x *studentServiceStreamGetStudent) Context() context.Context {
+	return x.stream.Context()
+}
+
+func (x *studentServiceStreamGetStudent) SendMsg(m interface{}) error {
+	return x.stream.Send(m)
+}
+
+func (x *studentServiceStreamGetStudent) RecvMsg(m interface{}) error {
+	return x.stream.Recv(m)
+}
+
+func (x *studentServiceStreamGetStudent) Send(m *StudentRequest) error {
+	return x.stream.Send(m)
+}
+
+func (x *studentServiceStreamGetStudent) Recv() (*Student, error) {
+	m := new(Student)
+	err := x.stream.Recv(m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Server API for StudentService service
 
 type StudentServiceHandler interface {
 	GetStudent(context.Context, *StudentRequest, *Student) error
+	// stream service
+	StreamGetStudent(context.Context, StudentService_StreamGetStudentStream) error
 }
 
 func RegisterStudentServiceHandler(s server.Server, hdlr StudentServiceHandler, opts ...server.HandlerOption) error {
 	type studentService interface {
 		GetStudent(ctx context.Context, in *StudentRequest, out *Student) error
+		StreamGetStudent(ctx context.Context, stream server.Stream) error
 	}
 	type StudentService struct {
 		studentService
@@ -90,4 +146,49 @@ type studentServiceHandler struct {
 
 func (h *studentServiceHandler) GetStudent(ctx context.Context, in *StudentRequest, out *Student) error {
 	return h.StudentServiceHandler.GetStudent(ctx, in, out)
+}
+
+func (h *studentServiceHandler) StreamGetStudent(ctx context.Context, stream server.Stream) error {
+	return h.StudentServiceHandler.StreamGetStudent(ctx, &studentServiceStreamGetStudentStream{stream})
+}
+
+type StudentService_StreamGetStudentStream interface {
+	Context() context.Context
+	SendMsg(interface{}) error
+	RecvMsg(interface{}) error
+	Close() error
+	Send(*Student) error
+	Recv() (*StudentRequest, error)
+}
+
+type studentServiceStreamGetStudentStream struct {
+	stream server.Stream
+}
+
+func (x *studentServiceStreamGetStudentStream) Close() error {
+	return x.stream.Close()
+}
+
+func (x *studentServiceStreamGetStudentStream) Context() context.Context {
+	return x.stream.Context()
+}
+
+func (x *studentServiceStreamGetStudentStream) SendMsg(m interface{}) error {
+	return x.stream.Send(m)
+}
+
+func (x *studentServiceStreamGetStudentStream) RecvMsg(m interface{}) error {
+	return x.stream.Recv(m)
+}
+
+func (x *studentServiceStreamGetStudentStream) Send(m *Student) error {
+	return x.stream.Send(m)
+}
+
+func (x *studentServiceStreamGetStudentStream) Recv() (*StudentRequest, error) {
+	m := new(StudentRequest)
+	if err := x.stream.Recv(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
